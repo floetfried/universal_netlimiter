@@ -83,3 +83,8 @@ rm ~/.config/autostart/netlimiter.desktop
 ## License
 
 Distributed under the **GNU General Public License v3**. Free and open-source for everyone, but strictly prohibited from being bundled into proprietary products.
+
+## Windows Edition
+
+Also available for Windows: [Universal Netlimiter Windows Edition](https://github.com/floetfried/universal_netlimiter_windows)
+– same features, same dark theme, built with WinDivert instead of `tc`.
