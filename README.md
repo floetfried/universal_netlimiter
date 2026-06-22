@@ -1,5 +1,7 @@
 # Universal Netlimiter
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 GUI bandwidth limiter for Linux. Set download and upload speed limits with direct Mbit/s entry and percentage sliders — with live traffic display and built-in speedtest.
 
 ## Features
@@ -53,3 +55,7 @@ rm -rf ~/universal_netlimiter
 rm ~/.local/share/applications/netlimiter.desktop
 rm ~/.config/autostart/netlimiter.desktop
 ```
+
+## License
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
