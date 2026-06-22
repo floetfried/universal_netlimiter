@@ -237,7 +237,7 @@ class App:
 
         measure_frame = ttk.Frame(outer, style="card.TFrame")
         measure_frame.pack(fill="x", pady=(0, 4))
-        self.measure_btn = ttk.Button(measure_frame, text="Messen", command=self._start_measure,
+        self.measure_btn = ttk.Button(measure_frame, text="Speedtest", command=self._start_measure,
                                       width=10, style="measure.TButton")
         self.measure_btn.pack()
         self.measure_result = ttk.Label(outer, text="", style="result.TLabel")
@@ -258,7 +258,7 @@ class App:
         self.dot = tk.Canvas(status_row, width=12, height=12, highlightthickness=0, bg=CARD)
         self.dot.pack(side="left", padx=(0, 6))
         self._dot = self.dot.create_oval(2, 2, 10, 10, fill=FG3, outline="")
-        self.status_label = ttk.Label(status_row, text="Aus", style="stat.TLabel")
+        self.status_label = ttk.Label(status_row, text="Off", style="stat.TLabel")
         self.status_label.pack(side="left", fill="x", expand=True)
         ttk.Label(status_row, text="Limit On/Off", style="stat.TLabel").pack(side="right", padx=(0, 4))
         self.toggle = ToggleSwitch(status_row, command=self._on_toggle)
@@ -324,18 +324,18 @@ class App:
         self._updating = False
 
     def _start_measure(self):
-        self.measure_btn.config(state="disabled", text="Messe\u2026")
-        self._set_status("Messe Download \u2026", YELLOW)
+        self.measure_btn.config(state="disabled", text="Testing\u2026")
+        self._set_status("Testing download\u2026", YELLOW)
         threading.Thread(target=self._do_measure, daemon=True).start()
 
     def _do_measure(self):
         try:
             st = speedtest.Speedtest()
             st.get_best_server()
-            self.root.after(0, lambda: self._set_status("Messe Download \u2026", YELLOW))
+            self.root.after(0, lambda: self._set_status("Testing download\u2026", YELLOW))
             dl_bps = st.download()
             dl_mbps = int(dl_bps / 1_000_000)
-            self.root.after(0, lambda: self._set_status("Messe Upload \u2026", YELLOW))
+            self.root.after(0, lambda: self._set_status("Testing upload\u2026", YELLOW))
             ul_bps = st.upload()
             ul_mbps = int(ul_bps / 1_000_000)
             self.root.after(0, self._finish_measure, dl_mbps, ul_mbps)
@@ -354,13 +354,13 @@ class App:
         self.ul_pct.set(100)
         self._updating = False
         self.measure_result.config(text=f"Download {dl} Mbit/s - Upload {ul} Mbit/s")
-        self._set_status("Gemessen", GREEN)
-        self.measure_btn.config(state="normal", text="Messen")
+        self._set_status("Measured", GREEN)
+        self.measure_btn.config(state="normal", text="Speedtest")
 
     def _fail_measure(self, err):
-        self._set_status("Fehler beim Messen", RED)
-        self.measure_btn.config(state="normal", text="Messen")
-        messagebox.showerror("Fehler", f"Speedtest fehlgeschlagen:\n{err}")
+        self._set_status("Measurement failed", RED)
+        self.measure_btn.config(state="normal", text="Speedtest")
+        messagebox.showerror("Error", f"Speedtest failed:\n{err}")
 
     def _update_live(self):
         try:
@@ -387,10 +387,10 @@ class App:
             self.toggle.set(False)
             return
         if state:
-            self._set_status("wird aktiviert \u2026", YELLOW)
+            self._set_status("Activating\u2026", YELLOW)
             threading.Thread(target=self._activate, daemon=True).start()
         else:
-            self._set_status("wird deaktiviert \u2026", YELLOW)
+            self._set_status("Deactivating\u2026", YELLOW)
             threading.Thread(target=self._deactivate, daemon=True).start()
 
     def _set_status(self, text, color):
@@ -424,8 +424,8 @@ tc qdisc add dev {self.iface} root tbf rate {limit_ul_kbit}kbit burst {burst}kbi
             self._set_status(f"Download: {dl_actual} / Upload: {ul_actual} Mbit/s", GREEN)
         else:
             self.toggle.set(False)
-            self._set_status("Fehler", RED)
-            messagebox.showerror("Fehler", f"Konnte Limit nicht setzen:\n{err}")
+            self._set_status("Error", RED)
+            messagebox.showerror("Error", f"Could not set limit:\n{err}")
 
     def _deactivate(self):
         script = f"""set -e
@@ -438,11 +438,11 @@ tc qdisc del dev {self.iface} root 2>/dev/null || true
     def _cb_deactivate(self, ok, err):
         if ok:
             self.active = False
-            self._set_status("Aus", FG3)
+            self._set_status("Off", FG3)
         else:
             self.toggle.set(True)
-            self._set_status("Fehler", RED)
-            messagebox.showerror("Fehler", f"Konnte Limit nicht entfernen:\n{err}")
+            self._set_status("Error", RED)
+            messagebox.showerror("Error", f"Could not remove limit:\n{err}")
 
     def _make_askpass(self):
         c = """#!/usr/bin/env python3
@@ -450,7 +450,7 @@ import tkinter as tk
 from tkinter import simpledialog
 r = tk.Tk()
 r.withdraw()
-pw = simpledialog.askstring("Passwort", "Root-Passwort f\u00fcr Limiter:", show="*")
+pw = simpledialog.askstring("Password", "Root password for Limits:", show="*")
 if pw: print(pw, end="")
 r.destroy()
 """
@@ -495,8 +495,8 @@ r.destroy()
             self._indicator_menu = Gtk.Menu()
             self._tray_items = {}
             items = [
-                ("show", "Fenster anzeigen", self._tray_show),
-                ("toggle", "Limit einschalten", self._tray_toggle),
+                ("show", "Show window", self._tray_show),
+                ("toggle", "Enable limit", self._tray_toggle),
             ]
             for key, label, cb in items:
                 item = Gtk.MenuItem(label=label)
@@ -504,7 +504,7 @@ r.destroy()
                 self._indicator_menu.append(item)
                 self._tray_items[key] = item
             self._indicator_menu.append(Gtk.SeparatorMenuItem())
-            quit_item = Gtk.MenuItem(label="Beenden")
+            quit_item = Gtk.MenuItem(label="Quit")
             quit_item.connect("activate", lambda _: self.root.after(0, self._tray_quit))
             self._indicator_menu.append(quit_item)
             self._indicator_menu.show_all()
@@ -521,8 +521,8 @@ r.destroy()
     def _update_tray(self):
         if not self._indicator or "toggle" not in self._tray_items:
             return
-        self._tray_items["toggle"].set_label("Limit ausschalten" if self.active else "Limit einschalten")
-        label = f"Limiter {'Aktiv' if self.active else 'Aus'}"
+        self._tray_items["toggle"].set_label("Disable limit" if self.active else "Enable limit")
+        label = f"Limiter {'Active' if self.active else 'Off'}"
         self._indicator.set_title(label)
         try:
             self._indicator.set_label(label, "")
