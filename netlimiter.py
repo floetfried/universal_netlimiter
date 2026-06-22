@@ -22,6 +22,9 @@ BLUE = "#3daee9"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(SCRIPT_DIR, "limiter_icon.png")
+IFACE_ICON = os.path.join(SCRIPT_DIR, "iface_icon.png")
+DL_ICON = os.path.join(SCRIPT_DIR, "dl_icon.png")
+UL_ICON = os.path.join(SCRIPT_DIR, "ul_icon.png")
 
 
 def _create_icon():
@@ -39,6 +42,34 @@ def _create_icon():
     except Exception:
         pass
     return ICON_PATH
+
+
+def _create_small_icons():
+    if all(os.path.exists(p) for p in (IFACE_ICON, DL_ICON, UL_ICON)):
+        return
+    try:
+        from PIL import Image, ImageDraw
+        sz = 16
+        def save(path, draw_fn):
+            img = Image.new("RGBA", (sz, sz), (0, 0, 0, 0))
+            draw_fn(ImageDraw.Draw(img))
+            img.save(path)
+
+        save(IFACE_ICON, lambda d: (
+            d.rectangle([2, 4, 6, 12], fill=BLUE, outline="#55b5f0"),
+            d.rectangle([8, 4, 12, 12], fill=BLUE, outline="#55b5f0"),
+            d.rectangle([6, 6, 8, 10], fill=BLUE),
+        ))
+        save(DL_ICON, lambda d: (
+            d.rectangle([6, 2, 10, 10], fill=GREEN),
+            d.polygon([(2, 9), (14, 9), (8, 15)], fill=GREEN),
+        ))
+        save(UL_ICON, lambda d: (
+            d.rectangle([6, 6, 10, 14], fill=YELLOW),
+            d.polygon([(2, 7), (14, 7), (8, 1)], fill=YELLOW),
+        ))
+    except Exception:
+        pass
 
 
 try:
@@ -95,20 +126,25 @@ class App:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Limiter")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
+        self.root.minsize(440, 340)
 
         self.iface = ""
         self.active = False
-        self.max_dl_mbps = 213
-        self.max_ul_mbps = 20
-        self.pct = tk.IntVar(value=75)
-        self.limit_dl_mbps = int(self.max_dl_mbps * self.pct.get() / 100)
-        self.limit_ul_mbps = int(self.max_ul_mbps * self.pct.get() / 100)
+        self._max_dl = 213
+        self._max_ul = 20
+        self.limit_dl_mbps = 160
+        self.limit_ul_mbps = 15
+        self.dl_pct = tk.DoubleVar(value=75)
+        self.ul_pct = tk.DoubleVar(value=75)
+        self._updating = False
 
         self._traffic_rx = [0, 0]
         self._traffic_tx = [0, 0]
 
         _create_icon()
+        _create_small_icons()
+        self._load_icons()
         self._set_window_icon()
 
         s = ttk.Style()
@@ -119,7 +155,8 @@ class App:
         s.configure("bold.TLabel", background=CARD, foreground=FG, font=("Segoe UI", 12, "bold"))
         s.configure("hint.TLabel", background=CARD, foreground=FG3, font=("Segoe UI", 8))
         s.configure("small.TLabel", background=CARD, foreground=FG2, font=("Segoe UI", 9))
-        s.configure("TScale", background=CARD, troughcolor="#444")
+        s.configure("result.TLabel", background=CARD, foreground=FG, font=("Segoe UI", 10))
+        s.configure("TScale", background=CARD, troughcolor="#444", sliderlength=20)
         s.configure("measure.TButton", foreground=FG, background="#3d3d3d", bordercolor="#555",
                      lightcolor="#3d3d3d", darkcolor="#3d3d3d", focuscolor="#3d3d3d")
         s.map("measure.TButton", foreground=[("active", FG)], background=[("active", "#4a4a4a")])
@@ -127,6 +164,21 @@ class App:
         self._setup_ui()
         self._detect_interfaces()
         self._setup_tray()
+
+    def _load_icons(self):
+        self._iface_img = None
+        self._dl_img = None
+        self._ul_img = None
+        try:
+            from PIL import Image, ImageTk
+            if os.path.exists(IFACE_ICON):
+                self._iface_img = ImageTk.PhotoImage(Image.open(IFACE_ICON))
+            if os.path.exists(DL_ICON):
+                self._dl_img = ImageTk.PhotoImage(Image.open(DL_ICON))
+            if os.path.exists(UL_ICON):
+                self._ul_img = ImageTk.PhotoImage(Image.open(UL_ICON))
+        except Exception:
+            pass
 
     def _set_window_icon(self):
         try:
@@ -140,49 +192,55 @@ class App:
     def _setup_ui(self):
         self.root.configure(bg=BG)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        outer = ttk.Frame(self.root, padding=(40, 22), style="card.TFrame")
-        outer.pack()
+        outer = ttk.Frame(self.root, padding=(36, 20), style="card.TFrame")
+        outer.pack(fill="both", expand=True)
+
+        def _row_label(parent, text, img):
+            kw = dict(text=text, style="stat.TLabel", width=15)
+            if img:
+                kw["image"] = img
+                kw["compound"] = "left"
+            ttk.Label(parent, **kw).pack(side="left")
 
         iface_frame = ttk.Frame(outer, style="card.TFrame")
-        iface_frame.pack(fill="x")
-        ttk.Label(iface_frame, text="Interface", style="stat.TLabel").pack(side="left")
-        self.iface_combo = ttk.Combobox(iface_frame, state="readonly", width=28)
-        self.iface_combo.pack(side="right")
+        iface_frame.pack(fill="x", pady=(0, 24))
+        _row_label(iface_frame, " Interface", self._iface_img)
+        self.iface_combo = ttk.Combobox(iface_frame, state="readonly", width=22)
+        self.iface_combo.pack(side="left", padx=(4, 2))
 
         dl_frame = ttk.Frame(outer, style="card.TFrame")
-        dl_frame.pack(fill="x", pady=(12, 0))
-        ttk.Label(dl_frame, text="Max. Download", style="stat.TLabel").pack(side="left")
-        self.dl_entry = ttk.Entry(dl_frame, width=10, justify="right")
-        self.dl_entry.insert(0, str(self.max_dl_mbps))
-        self.dl_entry.bind("<KeyRelease>", lambda _: self._on_slider())
-        self.dl_entry.bind("<FocusOut>", lambda _: self._on_slider())
+        dl_frame.pack(fill="x", pady=(0, 10))
+        _row_label(dl_frame, " Download", self._dl_img)
+        self.dl_entry = ttk.Entry(dl_frame, width=8, justify="right")
+        self.dl_entry.insert(0, str(self.limit_dl_mbps))
+        self.dl_entry.bind("<KeyRelease>", lambda _: self._entry_to_slider("dl"))
+        self.dl_entry.bind("<FocusOut>", lambda _: self._entry_to_slider("dl"))
         self.dl_entry.pack(side="left", padx=(4, 2))
         ttk.Label(dl_frame, text="Mbit/s", style="stat.TLabel").pack(side="left")
-        self.measure_btn = ttk.Button(dl_frame, text="Messen", command=self._start_measure,
-                                      width=10, style="measure.TButton")
-        self.measure_btn.pack(side="right")
+        self.dl_slider = ttk.Scale(dl_frame, from_=0, to=100, variable=self.dl_pct,
+                                   command=self._on_dl_slider, length=140)
+        self.dl_slider.pack(side="left", padx=(8, 0), fill="x", expand=True)
 
         ul_frame = ttk.Frame(outer, style="card.TFrame")
-        ul_frame.pack(fill="x", pady=(4, 0))
-        ttk.Label(ul_frame, text="Max. Upload", style="stat.TLabel").pack(side="left")
-        self.ul_entry = ttk.Entry(ul_frame, width=10, justify="right")
-        self.ul_entry.insert(0, str(self.max_ul_mbps))
-        self.ul_entry.bind("<KeyRelease>", lambda _: self._on_slider())
-        self.ul_entry.bind("<FocusOut>", lambda _: self._on_slider())
+        ul_frame.pack(fill="x", pady=(0, 24))
+        _row_label(ul_frame, " Upload", self._ul_img)
+        self.ul_entry = ttk.Entry(ul_frame, width=8, justify="right")
+        self.ul_entry.insert(0, str(self.limit_ul_mbps))
+        self.ul_entry.bind("<KeyRelease>", lambda _: self._entry_to_slider("ul"))
+        self.ul_entry.bind("<FocusOut>", lambda _: self._entry_to_slider("ul"))
         self.ul_entry.pack(side="left", padx=(4, 2))
         ttk.Label(ul_frame, text="Mbit/s", style="stat.TLabel").pack(side="left")
+        self.ul_slider = ttk.Scale(ul_frame, from_=0, to=100, variable=self.ul_pct,
+                                   command=self._on_ul_slider, length=140)
+        self.ul_slider.pack(side="left", padx=(8, 0), fill="x", expand=True)
 
-        self.slider = ttk.Scale(outer, from_=1, to=100, variable=self.pct, command=self._on_slider, length=420)
-        self.slider.pack(fill="x", pady=(14, 2))
-        slider_labels = ttk.Frame(outer, style="card.TFrame")
-        slider_labels.pack(fill="x")
-        ttk.Label(slider_labels, text="1%", style="hint.TLabel").pack(side="left")
-        ttk.Label(slider_labels, text="100%", style="hint.TLabel").pack(side="right")
-
-        self.limit_label = ttk.Label(outer,
-            text=f"Download: {self.limit_dl_mbps} Mbit/s  -  Upload: {self.limit_ul_mbps} Mbit/s",
-            style="bold.TLabel")
-        self.limit_label.pack(pady=(0, 6))
+        measure_frame = ttk.Frame(outer, style="card.TFrame")
+        measure_frame.pack(fill="x", pady=(0, 4))
+        self.measure_btn = ttk.Button(measure_frame, text="Messen", command=self._start_measure,
+                                      width=10, style="measure.TButton")
+        self.measure_btn.pack()
+        self.measure_result = ttk.Label(outer, text="", style="result.TLabel")
+        self.measure_result.pack(pady=(0, 16))
 
         live_frame = ttk.Frame(outer, style="card.TFrame")
         live_frame.pack(fill="x")
@@ -192,7 +250,7 @@ class App:
         self.ul_label.pack(side="right")
 
         separator = ttk.Separator(outer, orient="horizontal")
-        separator.pack(fill="x", pady=(10, 8))
+        separator.pack(fill="x", pady=(8, 6))
 
         status_row = ttk.Frame(outer, style="card.TFrame")
         status_row.pack(fill="x")
@@ -201,6 +259,7 @@ class App:
         self._dot = self.dot.create_oval(2, 2, 10, 10, fill=FG3, outline="")
         self.status_label = ttk.Label(status_row, text="Aus", style="stat.TLabel")
         self.status_label.pack(side="left", fill="x", expand=True)
+        ttk.Label(status_row, text="Limit On/Off", style="stat.TLabel").pack(side="right", padx=(0, 4))
         self.toggle = ToggleSwitch(status_row, command=self._on_toggle)
         self.toggle.pack(side="right")
 
@@ -228,22 +287,46 @@ class App:
         self.iface_combo.set(phys[0] if phys else ifaces[0] if ifaces else "")
         self.iface = self.iface_combo.get()
 
-    def _on_slider(self, _=None):
-        self.max_dl_mbps = int(self.dl_entry.get() or 0)
-        if self.max_dl_mbps <= 0:
-            self.max_dl_mbps = 213
-            self.dl_entry.delete(0, "end")
-            self.dl_entry.insert(0, "213")
-        self.max_ul_mbps = int(self.ul_entry.get() or 0)
-        if self.max_ul_mbps <= 0:
-            self.max_ul_mbps = 20
-            self.ul_entry.delete(0, "end")
-            self.ul_entry.insert(0, "20")
-        pct = self.pct.get() / 100
-        self.limit_dl_mbps = int(self.max_dl_mbps * pct)
-        self.limit_ul_mbps = int(self.max_ul_mbps * pct)
-        self.limit_label.config(
-            text=f"Download: {self.limit_dl_mbps} Mbit/s  -  Upload: {self.limit_ul_mbps} Mbit/s")
+    def _on_dl_slider(self, _=None):
+        if self._updating:
+            return
+        self._updating = True
+        val = max(0, int(self._max_dl * self.dl_pct.get() / 100))
+        self.dl_entry.delete(0, "end")
+        self.dl_entry.insert(0, str(val))
+        self.limit_dl_mbps = val
+        self._updating = False
+
+    def _on_ul_slider(self, _=None):
+        if self._updating:
+            return
+        self._updating = True
+        val = max(0, int(self._max_ul * self.ul_pct.get() / 100))
+        self.ul_entry.delete(0, "end")
+        self.ul_entry.insert(0, str(val))
+        self.limit_ul_mbps = val
+        self._updating = False
+
+    def _entry_to_slider(self, which):
+        if self._updating:
+            return
+        self._updating = True
+        try:
+            if which == "dl":
+                val = int(self.dl_entry.get() or 0)
+                if val > 0:
+                    self.limit_dl_mbps = val
+                    pct = min(100, val * 100 / self._max_dl) if self._max_dl > 0 else 0
+                    self.dl_pct.set(pct)
+            else:
+                val = int(self.ul_entry.get() or 0)
+                if val > 0:
+                    self.limit_ul_mbps = val
+                    pct = min(100, val * 100 / self._max_ul) if self._max_ul > 0 else 0
+                    self.ul_pct.set(pct)
+        except ValueError:
+            pass
+        self._updating = False
 
     def _start_measure(self):
         self.measure_btn.config(state="disabled", text="Messe\u2026")
@@ -265,14 +348,20 @@ class App:
             self.root.after(0, self._fail_measure, str(e))
 
     def _finish_measure(self, dl, ul):
-        self.max_dl_mbps = dl
+        self._max_dl = dl
+        self._max_ul = ul
+        self.limit_dl_mbps = dl
+        self.limit_ul_mbps = ul
+        self._updating = True
         self.dl_entry.delete(0, "end")
         self.dl_entry.insert(0, str(dl))
-        self.max_ul_mbps = ul
         self.ul_entry.delete(0, "end")
         self.ul_entry.insert(0, str(ul))
-        self._on_slider()
-        self._set_status(f"Download: {dl}  -  Upload: {ul} Mbit/s gemessen", GREEN)
+        self.dl_pct.set(100)
+        self.ul_pct.set(100)
+        self._updating = False
+        self.measure_result.config(text=f"Download {dl} Mbit/s - Upload {ul} Mbit/s")
+        self._set_status("Gemessen", GREEN)
         self.measure_btn.config(state="normal", text="Messen")
 
     def _fail_measure(self, err):
@@ -318,7 +407,8 @@ class App:
             self._update_tray()
 
     def _activate(self):
-        self._on_slider()
+        self._entry_to_slider("dl")
+        self._entry_to_slider("ul")
         if self.limit_dl_mbps <= 0 and self.limit_ul_mbps <= 0:
             self.root.after(0, lambda: self.toggle.set(False))
             return
@@ -338,8 +428,7 @@ tc qdisc add dev {self.iface} root tbf rate {limit_ul_kbit}kbit burst {burst}kbi
     def _cb_activate(self, ok, err):
         if ok:
             self.active = True
-            self._set_status(
-                f"Download: {self.limit_dl_mbps}  -  Upload: {self.limit_ul_mbps} Mbit/s limitiert", GREEN)
+            self._set_status(f"Download: {self.limit_dl_mbps} / Upload: {self.limit_ul_mbps} Mbit/s", GREEN)
         else:
             self.toggle.set(False)
             self._set_status("Fehler", RED)
