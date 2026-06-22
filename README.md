@@ -1,22 +1,22 @@
 # Universal Netlimiter
 
-GUI-Bandbreitenbegrenzer für Linux. Regels via Schieberegler wie viel vom verfügbaren Download genutzt werden soll – mit Live-Anzeige und Speedtest.
+GUI bandwidth limiter for Linux. Set a percentage slider to cap download speed — with live traffic display and built-in speedtest.
 
 ## Features
 
-- **Slider** (1-100%) – intuitiv, kein Rumrechnen
-- **Speedtest** – misst DL + UL und trägt den Max-Wert automatisch ein
-- **Live-Bandbreite** – aktuelle ↓/↑ Mbit/s alle 2s
-- **System Tray** – minimiert in die Taskleiste, Status sichtbar
-- **Kein VPN-Konflikt** – limitiert nur das physikalische Interface, erzeugt keine neuen Interfaces
-- **Kein Root für Dauerbetrieb** – Passwort nur beim Umschalten
+- **Slider** (1-100%) — set your limit intuitively
+- **Speedtest** — measures DL + UL, auto-fills the max value
+- **Live bandwidth** — current ↓/↑ Mbit/s updated every 2s
+- **System tray** — minimizes to tray, status always visible
+- **No VPN conflict** — limits the physical interface only, no virtual interfaces created
+- **No persistent root** — password prompt only when toggling
 
-## Voraussetzungen
+## Requirements
 
-- Linux mit `tc` (iproute2) – auf jedem Linux vorinstalliert
-- Python 3 mit tkinter (`sudo pacman -S tk` oder `sudo apt install python3-tk`)
-- `sudo`-Zugriff (wird nur beim Betätigen des Schalters via Passwort-Dialog benötigt)
-- Pakete: `python-speedtest-cli`, `python-pillow` (für Icon)
+- Linux with `tc` (iproute2) — preinstalled on every distribution
+- Python 3 with tkinter (`sudo pacman -S tk` or `sudo apt install python3-tk`)
+- `sudo` access (only needed when toggling the limiter)
+- Packages: `python-speedtest-cli`, `python-pillow` (for the icon)
 
 ## Installation
 
@@ -26,26 +26,26 @@ cd universal_netlimiter
 python3 netlimiter.py
 ```
 
-Oder via `.desktop`-Eintrag im Startmenü (wird bei `make install` oder manuellem Kopieren angelegt).
+A `.desktop` entry is provided at `~/.local/share/applications/netlimiter.desktop` so the app appears in your application menu.
 
-Autostart: `~/.config/autostart/netlimiter.desktop`
+For autostart: `~/.config/autostart/netlimiter.desktop`
 
-## Verwendung
+## Usage
 
-1. `python3 netlimiter.py` starten (oder über Startmenü)
-2. Optional: „Messen" klicken → Speedtest misst DL + UL
-3. Max-Wert ggf. manuell anpassen
-4. Schieberegler auf gewünschte Prozent stellen
-5. Schalter antippen → Root-Passwort eingeben
-6. Fertig – Download wird begrenzt
+1. Launch the app (via menu or `python3 netlimiter.py`)
+2. Optionally click "Messen" — runs a speedtest for DL + UL
+3. Adjust the max value manually if needed
+4. Drag the slider to your desired percentage
+5. Flip the toggle switch — enter your root password
+6. Done — download is now limited
 
-Erneutes Antippen entfernt das Limit. Schließen minimiert ins Tray.
+Toggle off to remove the limit. Closing the window minimizes to the system tray.
 
-## Funktionsweise
+## How it works
 
-Legt via `tc` (traffic control) einen **Ingress Policer** auf dem physikalischen Netzwerk-Interface an. Pakete, die das Limit überschreiten, werden verworfen – TCP bremst dadurch automatisch runter. Erzeugt keine neuen Interfaces, kein IFB, keine Kernel-Module.
+Creates an **ingress policer** via `tc` on the physical network interface. Packets exceeding the limit are dropped — TCP automatically backs off. No extra interfaces, no IFB, no kernel modules needed.
 
-## Deinstallation
+## Uninstall
 
 ```bash
 rm -rf ~/universal_netlimiter
