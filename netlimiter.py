@@ -131,12 +131,10 @@ class App:
 
         self.iface = ""
         self.active = False
-        self._max_dl = 213
-        self._max_ul = 20
-        self.limit_dl_mbps = 160
-        self.limit_ul_mbps = 15
-        self.dl_pct = tk.DoubleVar(value=75)
-        self.ul_pct = tk.DoubleVar(value=75)
+        self.limit_dl_mbps = 100
+        self.limit_ul_mbps = 10
+        self.dl_pct = tk.DoubleVar(value=100)
+        self.ul_pct = tk.DoubleVar(value=100)
         self._updating = False
 
         self._traffic_rx = [0, 0]
@@ -288,24 +286,10 @@ class App:
         self.iface = self.iface_combo.get()
 
     def _on_dl_slider(self, _=None):
-        if self._updating:
-            return
-        self._updating = True
-        val = max(0, int(self._max_dl * self.dl_pct.get() / 100))
-        self.dl_entry.delete(0, "end")
-        self.dl_entry.insert(0, str(val))
-        self.limit_dl_mbps = val
-        self._updating = False
+        pass
 
     def _on_ul_slider(self, _=None):
-        if self._updating:
-            return
-        self._updating = True
-        val = max(0, int(self._max_ul * self.ul_pct.get() / 100))
-        self.ul_entry.delete(0, "end")
-        self.ul_entry.insert(0, str(val))
-        self.limit_ul_mbps = val
-        self._updating = False
+        pass
 
     def _entry_to_slider(self, which):
         if self._updating:
@@ -314,16 +298,12 @@ class App:
         try:
             if which == "dl":
                 val = int(self.dl_entry.get() or 0)
-                if val > 0:
-                    self.limit_dl_mbps = val
-                    pct = min(100, val * 100 / self._max_dl) if self._max_dl > 0 else 0
-                    self.dl_pct.set(pct)
+                self.limit_dl_mbps = max(0, val)
+                self.dl_pct.set(100)
             else:
                 val = int(self.ul_entry.get() or 0)
-                if val > 0:
-                    self.limit_ul_mbps = val
-                    pct = min(100, val * 100 / self._max_ul) if self._max_ul > 0 else 0
-                    self.ul_pct.set(pct)
+                self.limit_ul_mbps = max(0, val)
+                self.ul_pct.set(100)
         except ValueError:
             pass
         self._updating = False
@@ -348,8 +328,6 @@ class App:
             self.root.after(0, self._fail_measure, str(e))
 
     def _finish_measure(self, dl, ul):
-        self._max_dl = dl
-        self._max_ul = ul
         self.limit_dl_mbps = dl
         self.limit_ul_mbps = ul
         self._updating = True
@@ -407,13 +385,13 @@ class App:
             self._update_tray()
 
     def _activate(self):
-        self._entry_to_slider("dl")
-        self._entry_to_slider("ul")
-        if self.limit_dl_mbps <= 0 and self.limit_ul_mbps <= 0:
+        dl_actual = int(self.limit_dl_mbps * self.dl_pct.get() / 100)
+        ul_actual = int(self.limit_ul_mbps * self.ul_pct.get() / 100)
+        if dl_actual <= 0 and ul_actual <= 0:
             self.root.after(0, lambda: self.toggle.set(False))
             return
-        limit_dl_kbit = self.limit_dl_mbps * 1000
-        limit_ul_kbit = self.limit_ul_mbps * 1000
+        limit_dl_kbit = dl_actual * 1000
+        limit_ul_kbit = ul_actual * 1000
         burst = max(256, int(max(limit_dl_kbit, limit_ul_kbit) * 0.05))
         script = f"""set -e
 tc qdisc del dev {self.iface} ingress 2>/dev/null || true
@@ -423,12 +401,12 @@ tc qdisc del dev {self.iface} root 2>/dev/null || true
 tc qdisc add dev {self.iface} root tbf rate {limit_ul_kbit}kbit burst {burst}kbit latency 50ms
 """
         ok, err = self._run_root(script)
-        self.root.after(0, self._cb_activate, ok, err)
+        self.root.after(0, self._cb_activate, ok, err, dl_actual, ul_actual)
 
-    def _cb_activate(self, ok, err):
+    def _cb_activate(self, ok, err, dl_actual, ul_actual):
         if ok:
             self.active = True
-            self._set_status(f"Download: {self.limit_dl_mbps} / Upload: {self.limit_ul_mbps} Mbit/s", GREEN)
+            self._set_status(f"Download: {dl_actual} / Upload: {ul_actual} Mbit/s", GREEN)
         else:
             self.toggle.set(False)
             self._set_status("Fehler", RED)
