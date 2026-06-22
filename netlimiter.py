@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Floetfried Meisenmann (floetfried)
+# Repository: https://github.com/floetfried/universal_netlimiter
 import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
