@@ -286,10 +286,22 @@ class App:
         self.iface = self.iface_combo.get()
 
     def _on_dl_slider(self, _=None):
-        pass
+        if self._updating:
+            return
+        self._updating = True
+        val = int(self.limit_dl_mbps * self.dl_pct.get() / 100)
+        self.dl_entry.delete(0, "end")
+        self.dl_entry.insert(0, str(val))
+        self._updating = False
 
     def _on_ul_slider(self, _=None):
-        pass
+        if self._updating:
+            return
+        self._updating = True
+        val = int(self.limit_ul_mbps * self.ul_pct.get() / 100)
+        self.ul_entry.delete(0, "end")
+        self.ul_entry.insert(0, str(val))
+        self._updating = False
 
     def _entry_to_slider(self, which):
         if self._updating:
