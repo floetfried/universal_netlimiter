@@ -99,9 +99,11 @@ class App:
 
         self.iface = ""
         self.active = False
-        self.max_mbps = 213
+        self.max_dl_mbps = 213
+        self.max_ul_mbps = 20
         self.pct = tk.IntVar(value=75)
-        self.limit_mbps = int(self.max_mbps * self.pct.get() / 100)
+        self.limit_dl_mbps = int(self.max_dl_mbps * self.pct.get() / 100)
+        self.limit_ul_mbps = int(self.max_ul_mbps * self.pct.get() / 100)
 
         self._traffic_rx = [0, 0]
         self._traffic_tx = [0, 0]
@@ -138,37 +140,49 @@ class App:
     def _setup_ui(self):
         self.root.configure(bg=BG)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        outer = ttk.Frame(self.root, padding=(30, 18), style="card.TFrame")
+        outer = ttk.Frame(self.root, padding=(40, 22), style="card.TFrame")
         outer.pack()
 
         iface_frame = ttk.Frame(outer, style="card.TFrame")
         iface_frame.pack(fill="x")
         ttk.Label(iface_frame, text="Interface", style="stat.TLabel").pack(side="left")
-        self.iface_combo = ttk.Combobox(iface_frame, state="readonly", width=24)
+        self.iface_combo = ttk.Combobox(iface_frame, state="readonly", width=28)
         self.iface_combo.pack(side="right")
 
-        max_frame = ttk.Frame(outer, style="card.TFrame")
-        max_frame.pack(fill="x", pady=(10, 0))
-        ttk.Label(max_frame, text="Max", style="stat.TLabel").pack(side="left")
-        self.max_entry = ttk.Entry(max_frame, width=8, justify="right")
-        self.max_entry.insert(0, str(self.max_mbps))
-        self.max_entry.bind("<KeyRelease>", lambda _: self._on_slider())
-        self.max_entry.bind("<FocusOut>", lambda _: self._on_slider())
-        self.max_entry.pack(side="left", padx=(4, 2))
-        ttk.Label(max_frame, text="Mbit/s", style="stat.TLabel").pack(side="left")
-        self.measure_btn = ttk.Button(max_frame, text="Messen", command=self._start_measure,
+        dl_frame = ttk.Frame(outer, style="card.TFrame")
+        dl_frame.pack(fill="x", pady=(12, 0))
+        ttk.Label(dl_frame, text="Max. Download", style="stat.TLabel").pack(side="left")
+        self.dl_entry = ttk.Entry(dl_frame, width=10, justify="right")
+        self.dl_entry.insert(0, str(self.max_dl_mbps))
+        self.dl_entry.bind("<KeyRelease>", lambda _: self._on_slider())
+        self.dl_entry.bind("<FocusOut>", lambda _: self._on_slider())
+        self.dl_entry.pack(side="left", padx=(4, 2))
+        ttk.Label(dl_frame, text="Mbit/s", style="stat.TLabel").pack(side="left")
+        self.measure_btn = ttk.Button(dl_frame, text="Messen", command=self._start_measure,
                                       width=10, style="measure.TButton")
         self.measure_btn.pack(side="right")
 
-        self.slider = ttk.Scale(outer, from_=1, to=100, variable=self.pct, command=self._on_slider, length=340)
+        ul_frame = ttk.Frame(outer, style="card.TFrame")
+        ul_frame.pack(fill="x", pady=(4, 0))
+        ttk.Label(ul_frame, text="Max. Upload", style="stat.TLabel").pack(side="left")
+        self.ul_entry = ttk.Entry(ul_frame, width=10, justify="right")
+        self.ul_entry.insert(0, str(self.max_ul_mbps))
+        self.ul_entry.bind("<KeyRelease>", lambda _: self._on_slider())
+        self.ul_entry.bind("<FocusOut>", lambda _: self._on_slider())
+        self.ul_entry.pack(side="left", padx=(4, 2))
+        ttk.Label(ul_frame, text="Mbit/s", style="stat.TLabel").pack(side="left")
+
+        self.slider = ttk.Scale(outer, from_=1, to=100, variable=self.pct, command=self._on_slider, length=420)
         self.slider.pack(fill="x", pady=(14, 2))
         slider_labels = ttk.Frame(outer, style="card.TFrame")
         slider_labels.pack(fill="x")
         ttk.Label(slider_labels, text="1%", style="hint.TLabel").pack(side="left")
         ttk.Label(slider_labels, text="100%", style="hint.TLabel").pack(side="right")
 
-        self.limit_label = ttk.Label(outer, text=f"{self.limit_mbps} Mbit/s", style="bold.TLabel")
-        self.limit_label.pack(pady=(0, 4))
+        self.limit_label = ttk.Label(outer,
+            text=f"Download: {self.limit_dl_mbps} Mbit/s  -  Upload: {self.limit_ul_mbps} Mbit/s",
+            style="bold.TLabel")
+        self.limit_label.pack(pady=(0, 6))
 
         live_frame = ttk.Frame(outer, style="card.TFrame")
         live_frame.pack(fill="x")
@@ -178,7 +192,7 @@ class App:
         self.ul_label.pack(side="right")
 
         separator = ttk.Separator(outer, orient="horizontal")
-        separator.pack(fill="x", pady=(8, 6))
+        separator.pack(fill="x", pady=(10, 8))
 
         status_row = ttk.Frame(outer, style="card.TFrame")
         status_row.pack(fill="x")
@@ -215,27 +229,35 @@ class App:
         self.iface = self.iface_combo.get()
 
     def _on_slider(self, _=None):
-        self.max_mbps = int(self.max_entry.get() or 0)
-        if self.max_mbps <= 0:
-            self.max_mbps = 213
-            self.max_entry.delete(0, "end")
-            self.max_entry.insert(0, "213")
-        self.limit_mbps = int(self.max_mbps * self.pct.get() / 100)
-        self.limit_label.config(text=f"{self.limit_mbps} Mbit/s")
+        self.max_dl_mbps = int(self.dl_entry.get() or 0)
+        if self.max_dl_mbps <= 0:
+            self.max_dl_mbps = 213
+            self.dl_entry.delete(0, "end")
+            self.dl_entry.insert(0, "213")
+        self.max_ul_mbps = int(self.ul_entry.get() or 0)
+        if self.max_ul_mbps <= 0:
+            self.max_ul_mbps = 20
+            self.ul_entry.delete(0, "end")
+            self.ul_entry.insert(0, "20")
+        pct = self.pct.get() / 100
+        self.limit_dl_mbps = int(self.max_dl_mbps * pct)
+        self.limit_ul_mbps = int(self.max_ul_mbps * pct)
+        self.limit_label.config(
+            text=f"Download: {self.limit_dl_mbps} Mbit/s  -  Upload: {self.limit_ul_mbps} Mbit/s")
 
     def _start_measure(self):
-        self.measure_btn.config(state="disabled", text="Messe…")
-        self._set_status("Messe Download …", YELLOW)
+        self.measure_btn.config(state="disabled", text="Messe\u2026")
+        self._set_status("Messe Download \u2026", YELLOW)
         threading.Thread(target=self._do_measure, daemon=True).start()
 
     def _do_measure(self):
         try:
             st = speedtest.Speedtest()
             st.get_best_server()
-            self.root.after(0, lambda: self._set_status("Messe Download …", YELLOW))
+            self.root.after(0, lambda: self._set_status("Messe Download \u2026", YELLOW))
             dl_bps = st.download()
             dl_mbps = int(dl_bps / 1_000_000)
-            self.root.after(0, lambda: self._set_status("Messe Upload …", YELLOW))
+            self.root.after(0, lambda: self._set_status("Messe Upload \u2026", YELLOW))
             ul_bps = st.upload()
             ul_mbps = int(ul_bps / 1_000_000)
             self.root.after(0, self._finish_measure, dl_mbps, ul_mbps)
@@ -243,11 +265,14 @@ class App:
             self.root.after(0, self._fail_measure, str(e))
 
     def _finish_measure(self, dl, ul):
-        self.max_mbps = dl
-        self.max_entry.delete(0, "end")
-        self.max_entry.insert(0, str(dl))
+        self.max_dl_mbps = dl
+        self.dl_entry.delete(0, "end")
+        self.dl_entry.insert(0, str(dl))
+        self.max_ul_mbps = ul
+        self.ul_entry.delete(0, "end")
+        self.ul_entry.insert(0, str(ul))
         self._on_slider()
-        self._set_status(f"DL: {dl} / UL: {ul} Mbit/s gemessen", GREEN)
+        self._set_status(f"Download: {dl}  -  Upload: {ul} Mbit/s gemessen", GREEN)
         self.measure_btn.config(state="normal", text="Messen")
 
     def _fail_measure(self, err):
@@ -294,15 +319,18 @@ class App:
 
     def _activate(self):
         self._on_slider()
-        if self.limit_mbps <= 0:
+        if self.limit_dl_mbps <= 0 and self.limit_ul_mbps <= 0:
             self.root.after(0, lambda: self.toggle.set(False))
             return
-        limit_kbit = self.limit_mbps * 1000
-        burst = max(256, int(limit_kbit * 0.05))
+        limit_dl_kbit = self.limit_dl_mbps * 1000
+        limit_ul_kbit = self.limit_ul_mbps * 1000
+        burst = max(256, int(max(limit_dl_kbit, limit_ul_kbit) * 0.05))
         script = f"""set -e
 tc qdisc del dev {self.iface} ingress 2>/dev/null || true
 tc qdisc add dev {self.iface} ingress
-tc filter add dev {self.iface} parent ffff: protocol all prio 1 u32 match u32 0 0 police rate {limit_kbit}kbit burst {burst}kbit drop
+tc filter add dev {self.iface} parent ffff: protocol all prio 1 u32 match u32 0 0 police rate {limit_dl_kbit}kbit burst {burst}kbit drop
+tc qdisc del dev {self.iface} root 2>/dev/null || true
+tc qdisc add dev {self.iface} root tbf rate {limit_ul_kbit}kbit burst {burst}kbit latency 50ms
 """
         ok, err = self._run_root(script)
         self.root.after(0, self._cb_activate, ok, err)
@@ -310,7 +338,8 @@ tc filter add dev {self.iface} parent ffff: protocol all prio 1 u32 match u32 0 
     def _cb_activate(self, ok, err):
         if ok:
             self.active = True
-            self._set_status(f"Limitiert auf {self.limit_mbps} Mbit/s", GREEN)
+            self._set_status(
+                f"Download: {self.limit_dl_mbps}  -  Upload: {self.limit_ul_mbps} Mbit/s limitiert", GREEN)
         else:
             self.toggle.set(False)
             self._set_status("Fehler", RED)
@@ -319,6 +348,7 @@ tc filter add dev {self.iface} parent ffff: protocol all prio 1 u32 match u32 0 
     def _deactivate(self):
         script = f"""set -e
 tc qdisc del dev {self.iface} ingress 2>/dev/null || true
+tc qdisc del dev {self.iface} root 2>/dev/null || true
 """
         ok, err = self._run_root(script)
         self.root.after(0, self._cb_deactivate, ok, err)
