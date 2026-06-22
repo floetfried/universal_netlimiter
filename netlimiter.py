@@ -125,7 +125,7 @@ class ToggleSwitch(ttk.Frame):
 class App:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Limiter")
+        self.root.title("Universal Netlimiter")
         self.root.resizable(True, True)
         self.root.minsize(440, 340)
 
