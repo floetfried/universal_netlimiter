@@ -65,7 +65,7 @@ For autostart: `~/.config/autostart/netlimiter.desktop`
 ## Usage
 
 1. Launch the app (via menu, AppImage, or `python3 netlimiter.py`)
-2. Optionally click **Messen** — runs a speedtest for DL + UL
+2. Optionally click **Speedtest** — runs a speedtest for DL + UL
 3. Type the desired Mbit/s limit; the slider fine-tunes the percentage
 4. Flip the toggle switch — enter your root password
 5. Done — download and upload are now limited
