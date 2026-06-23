@@ -17,7 +17,7 @@ echo "=== Replace netlimiter.py ==="
 cp /home/gustl/Netlimiter/netlimiter.py "$APPDIR/netlimiter.py"
 
 echo "=== Build AppImage ==="
-/tmp/appimagetool "$APPDIR" /home/gustl/Netlimiter/"$APPIMAGE"
+/tmp/appimagetool -n "$APPDIR" /home/gustl/Netlimiter/"$APPIMAGE"
 
 echo "=== Done ==="
 ls -lh /home/gustl/Netlimiter/"$APPIMAGE"
