@@ -368,16 +368,22 @@ class App:
                 rx = int(f.read())
             with open(f"/sys/class/net/{self.iface}/statistics/tx_bytes") as f:
                 tx = int(f.read())
+            now = time.monotonic()
             if self._traffic_rx[0]:
-                drx = (rx - self._traffic_rx[0]) / 1024 / 1024 * 8
-                dtx = (tx - self._traffic_tx[0]) / 1024 / 1024 * 8
-                self.dl_label.config(text=f"\u2193 {drx:.1f} Mbit/s")
-                self.ul_label.config(text=f"\u2191 {dtx:.1f} Mbit/s")
+                dt = now - self._traffic_rx[1]
+                if dt > 0:
+                    drx = (rx - self._traffic_rx[0]) / dt / 1024 / 1024 * 8
+                    dtx = (tx - self._traffic_tx[0]) / dt / 1024 / 1024 * 8
+                    self.dl_label.config(text=f"\u2193 {drx:.1f} Mbit/s")
+                    self.ul_label.config(text=f"\u2191 {dtx:.1f} Mbit/s")
+                else:
+                    self.dl_label.config(text="\u2193 \u2014")
+                    self.ul_label.config(text="\u2191 \u2014")
             else:
                 self.dl_label.config(text="\u2193 \u2014")
                 self.ul_label.config(text="\u2191 \u2014")
-            self._traffic_rx = [rx, time.monotonic()]
-            self._traffic_tx = [tx, time.monotonic()]
+            self._traffic_rx = [rx, now]
+            self._traffic_tx = [tx, now]
         except:
             pass
         self.root.after(2000, self._update_live)
