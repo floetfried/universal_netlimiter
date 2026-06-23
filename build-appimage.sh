@@ -6,12 +6,13 @@ APPDIR="/tmp/netlimiter-appdir"
 
 echo "=== Clean up old build ==="
 rm -rf "$APPDIR"
-rm -f "$APPIMAGE"
 
 echo "=== Extract existing AppImage ==="
+SRC="/home/gustl/Netlimiter/$APPIMAGE"
 cd /tmp
-/home/gustl/Netlimiter/Universal-Netlimiter-x86_64.AppImage --appimage-extract
+"$SRC" --appimage-extract
 mv squashfs-root "$APPDIR"
+rm -f "$SRC"
 
 echo "=== Replace netlimiter.py ==="
 cp /home/gustl/Netlimiter/netlimiter.py "$APPDIR/netlimiter.py"
